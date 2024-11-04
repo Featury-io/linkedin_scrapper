@@ -15,7 +15,7 @@ def get_url_by_company_name():
 
             for v in data.values():
                 company_urls.append(v+"/?trk=companies_directory")
-            company_urls = company_urls[:500]
+            #company_urls = company_urls[:500]
             print("Company URLs:", len(company_urls))
     except FileNotFoundError:
         print(f"Error: JSON file '{input_file}' not found.")
