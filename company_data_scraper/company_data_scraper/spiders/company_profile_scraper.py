@@ -29,7 +29,11 @@ class CompanyProfileScraperSpider(scrapy.Spider):
     custom_settings = {
         'HTTPERROR_ALLOW_ALL': True, 
         'REDIRECT_ENABLED': True, 
-        'REDIRECT_MAX_TIMES': 5, 
+        'REDIRECT_MAX_TIMES': 5,
+        'DOWNLOAD_DELAY': 0.1, 
+        'RETRY_TIMES': 10,
+        'RANDOMIZE_DOWNLOAD_DELAY': True,
+        'DUPEFILTER_CLASS': 'scrapy.dupefilters.BaseDupeFilter'
     }
     
     def __init__(self, *args, **kwargs):
