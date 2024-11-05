@@ -54,7 +54,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         yield scrapy.Request(url=first_url, callback=self.parse_response,
                              meta={'company_index_tracker': company_index_tracker,'company_url': first_url})
 
-    def parse_response(self, response,li_url):
+    def parse_response(self, response):
         company_index_tracker = response.meta['company_index_tracker']
         company_url = response.meta['company_url']
         
