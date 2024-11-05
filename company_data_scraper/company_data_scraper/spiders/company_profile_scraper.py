@@ -52,17 +52,18 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
         first_url = self.company_pages[company_index_tracker]
         yield scrapy.Request(url=first_url, callback=self.parse_response,
-                             meta={'company_index_tracker': company_index_tracker})
+                             meta={'company_index_tracker': company_index_tracker,'company_url': first_url})
 
-    def parse_response(self, response):
+    def parse_response(self, response,li_url):
         company_index_tracker = response.meta['company_index_tracker']
+        company_url = response.meta['company_url']
         
         # Check for redirect responses
         if response.status in [301, 302, 303, 307, 308]:
             print(f"Redirect encountered for {response.url}. Handling redirect.")
             yield scrapy.Request(url=response.headers['Location'].decode('utf-8'), 
                                  callback=self.parse_response, 
-                                 meta={'company_index_tracker': company_index_tracker},
+                                 meta={'company_index_tracker': company_index_tracker, 'company_url': company_url},
                                  dont_filter=True)
             return
         
@@ -75,7 +76,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
             print('********')
 
             company_item = {}
-            
+            company_item['company_url'] = company_url
             # Get company name or set to 'not-found' if not present
             company_item['company_name'] = response.css('.top-card-layout__entity-info h1::text').get(default='not-found').strip()
 
@@ -106,7 +107,6 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
             try:
                 company_details = response.css('.core-section-container__content .mb-2')
-
                 try:
                     company_item['website'] = company_details[0].css('a::text').get(default='not-found').strip()
                 except:
@@ -164,4 +164,4 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         if (company_index_tracker <= len(self.company_pages) - 1):
             next_url = self.company_pages[company_index_tracker]
             yield scrapy.Request(url=next_url, callback=self.parse_response,
-                                 meta={'company_index_tracker': company_index_tracker})
+                                 meta={'company_index_tracker': company_index_tracker, 'company_url': company_url})
