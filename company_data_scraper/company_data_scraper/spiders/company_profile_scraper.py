@@ -48,12 +48,12 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         print(f"Found {len(self.company_pages)} urls to scrap")
 
     def start_requests(self):
-        company_index_tracker = 0
-
-        first_url = self.company_pages[company_index_tracker]
-        yield scrapy.Request(url=first_url, callback=self.parse_response,
-                             meta={'company_index_tracker': company_index_tracker,'company_url': first_url})
-
+        for idx, url in enumerate(self.company_pages):
+            yield scrapy.Request(
+                url=url,
+                callback=self.parse_response,
+                meta={'company_index_tracker': idx, 'company_url': url}
+            )
     def parse_response(self, response):
         company_index_tracker = response.meta['company_index_tracker']
         company_url = response.meta['company_url']
@@ -77,6 +77,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
             company_item = {}
             company_item['company_url'] = company_url
+            print(company_url)
             # Get company name or set to 'not-found' if not present
             company_item['company_name'] = response.css('.top-card-layout__entity-info h1::text').get(default='not-found').strip()
 
@@ -158,8 +159,6 @@ class CompanyProfileScraperSpider(scrapy.Spider):
                 print("Error: *****Skipped index, as some details are missing*********")
 
             yield company_item
-
-        company_index_tracker += 1
 
         if (company_index_tracker <= len(self.company_pages) - 1):
             next_url = self.company_pages[company_index_tracker]
