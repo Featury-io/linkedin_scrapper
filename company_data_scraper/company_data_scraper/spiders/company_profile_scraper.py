@@ -34,9 +34,6 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         'RETRY_TIMES': 10,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'DUPEFILTER_CLASS': 'scrapy.dupefilters.BaseDupeFilter',
-        'CONCURRENT_REQUESTS': 1, 
-        'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
-        'CONCURRENT_REQUESTS_PER_IP': 1
     }
     
     def __init__(self, *args, **kwargs):
