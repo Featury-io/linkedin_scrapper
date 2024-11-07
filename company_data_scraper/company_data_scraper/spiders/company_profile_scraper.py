@@ -62,17 +62,16 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         if response.status in [301, 302, 303, 307, 308]:
             print(f"Redirect encountered for {response.url}. Handling redirect.")
             yield scrapy.Request(url=response.headers['Location'].decode('utf-8'), 
-                                 callback=self.parse_response, 
-                                 meta={'company_index_tracker': company_index_tracker, 'company_url': company_url},
-                                 dont_filter=True)
+                                callback=self.parse_response, 
+                                meta={'company_index_tracker': company_index_tracker, 'company_url': company_url},
+                                dont_filter=True)
             return
         
         if response.status == 404:
             print(f"Skipping {str(company_index_tracker + 1)} of {str(len(self.company_pages))}")
         else:
             print('********')
-            print(
-                f'Scraping page: {str(company_index_tracker + 1)} of {str(len(self.company_pages))}')
+            print(f'Scraping page: {str(company_index_tracker + 1)} of {str(len(self.company_pages))}')
             print('********')
 
             company_item = {}
@@ -159,8 +158,3 @@ class CompanyProfileScraperSpider(scrapy.Spider):
                 print("Error: *****Skipped index, as some details are missing*********")
 
             yield company_item
-
-        if (company_index_tracker <= len(self.company_pages) - 1):
-            next_url = self.company_pages[company_index_tracker]
-            yield scrapy.Request(url=next_url, callback=self.parse_response,
-                                 meta={'company_index_tracker': company_index_tracker, 'company_url': company_url})
