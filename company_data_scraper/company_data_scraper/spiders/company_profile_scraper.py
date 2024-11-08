@@ -30,7 +30,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         'HTTPERROR_ALLOW_ALL': True, 
         'REDIRECT_ENABLED': True, 
         'REDIRECT_MAX_TIMES': 5,
-        'DOWNLOAD_DELAY': 0.7, 
+        'DOWNLOAD_DELAY': 2, 
         'RETRY_TIMES': 10,
         'RANDOMIZE_DOWNLOAD_DELAY': True,
         'DUPEFILTER_CLASS': 'scrapy.dupefilters.RFPDupeFilter',
