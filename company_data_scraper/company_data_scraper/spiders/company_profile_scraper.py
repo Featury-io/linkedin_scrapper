@@ -74,7 +74,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
         # Retry on 404 errors
         if response.status == 404:
-            if retry_count < 10:
+            if retry_count < 3:
                 print(f"Page not found for {company_url}. Retrying ({retry_count + 1}/10)...")
                 time.sleep(3)  # Additional delay before retrying
                 yield scrapy.Request(
