@@ -75,7 +75,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         # Retry on 404 errors
         if response.status == 404:
             if retry_count < 3:
-                print(f"Page not found for {company_url}. Retrying ({retry_count + 1}/10)...")
+                print(f"Page not found for {company_url}. Retrying ({retry_count + 1}/3)...")
                 time.sleep(3)  # Additional delay before retrying
                 yield scrapy.Request(
                     url=company_url,
@@ -118,28 +118,58 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         # Extract additional company details safely
         try:
             company_details = response.css('.core-section-container__content .mb-2')
-            company_item['website'] = company_details[0].css('a::text').get(default='').strip()
-            company_item['industry'] = company_details[1].css('.text-md::text').getall()[1].strip()
-            company_item['company_size_approx'] = company_details[2].css('.text-md::text').getall()[1].strip().split()[0]
-            headquarters = company_details[3].css('.text-md::text').getall()
-            company_item['headquarters'] = headquarters[1].strip() if headquarters[0].lower().strip() == 'headquarters' else 'not-found'
-            company_item['type'] = company_details[4].css('.text-md::text').getall()[1].strip()
-            
-            # Handle "founded" or "specialties"
-            unsure_parameter = company_details[5].css('.text-md::text').getall()
-            unsure_parameter_key = unsure_parameter[0].lower().strip()
-            company_item[unsure_parameter_key] = unsure_parameter[1].strip()
-            if unsure_parameter_key == 'founded':
-                specialties = company_details[6].css('.text-md::text').getall()
-                company_item['specialties'] = specialties[1].strip() if specialties[0].lower().strip() == 'specialties' else 'not-found'
-            else:
-                company_item['founded'] = 'not-found'
-                company_item['specialties'] = 'not-found'
+            try:
+                company_item['website'] = company_details[0].css('a::text').get(default='not-found').strip()
+            except:
+                company_item['website'] = ""
+            try:
+                company_industry_line = company_details[1].css('.text-md::text').getall()
+                company_item['industry'] = company_industry_line[1].strip()
+            except:
+                company_item['industry'] = ""
+            try:
+                company_size_line = company_details[2].css('.text-md::text').getall()
+                company_item['company_size_approx'] = company_size_line[1].strip().split()[0]
+            except:
+                company_item['company_size_approx'] = ""
+            try:
+                company_headquarters = company_details[3].css('.text-md::text').getall()
+                if company_headquarters[0].lower().strip() == 'headquarters':
+                    company_item['headquarters'] = company_headquarters[1].strip()
+                else:
+                    company_item['headquarters'] = 'not-found'
+            except:
+                company_item['headquarters'] = ""
+            try:
+                company_type = company_details[4].css('.text-md::text').getall()
+                company_item['type'] = company_type[1].strip()
+            except:
+                company_item['type'] = ""
+            try:
+                # specialities or founded, one among them -> storing in unsure_parameter
+                unsure_parameter = company_details[5].css('.text-md::text').getall()
+                unsure_parameter_key = unsure_parameter[0].lower().strip()
+                company_item[unsure_parameter_key] = unsure_parameter[1].strip()
+                # founded comes before specialties if exists, or else specialties at first means that founded parameter isn't defined
+                if unsure_parameter_key == 'founded':
+                    company_specialties = company_details[6].css('.text-md::text').getall()
+                    # after founded is extracted, check if specialties is defined
+                    if company_specialties[0].lower().strip() == 'specialties':
+                        company_item['specialties'] = company_specialties[1].strip()
+                    else:
+                        company_item['specialties'] = 'not-found'
+                elif unsure_parameter_key != 'specialties' or unsure_parameter_key == 'founded':
+                    company_item['founded'] = 'not-found'
+                    company_item['specialties'] = 'not-found'
+            except:
+                company_item['founded'] = ""
+                company_item['specialties'] = ""
 
         except IndexError:
-            print("Skipped index due to missing details")
+            print("Error: *****Skipped index, as some details are missing*********")
 
         yield company_item
+        company_index_tracker += 1
 
         # Request next URL
         if company_index_tracker + 1 < len(self.company_pages):
