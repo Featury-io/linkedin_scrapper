@@ -97,6 +97,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
         # Pause for an additional 3 seconds if company_name is 'not-found'
         if company_item['company_name'] == 'not-found':
+            print(company_url)
             print("Company name not found. Pausing for an additional 3 seconds.")
             time.sleep(3)
 
