@@ -4,6 +4,7 @@ from typing import Any, Iterable
 import scrapy
 from scrapy.http import Request, Response
 import re
+from company_data_scraper.pipelines import CompanyProfilePipeline
 
 
 input_file = 'company_names.json'
@@ -43,8 +44,11 @@ class CompanyProfileScraperSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         get_url_by_company_name()
-        
-        self.company_pages = list(set(company_urls))
+
+        self.company_pages = [
+            url for url in set(company_urls) 
+            if url not in CompanyProfilePipeline.scraped_urls
+        ]
         print(f"Found {len(self.company_pages)} new URLs to scrape.")
         
         if not company_urls:
