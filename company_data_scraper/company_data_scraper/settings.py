@@ -11,3 +11,9 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 LOG_LEVEL = 'WARNING'  # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+
+# settings.py
+ITEM_PIPELINES = {
+    'company_data_scraper.pipelines.CompanyProfilePipeline': 300,
+}

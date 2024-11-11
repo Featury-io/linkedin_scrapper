@@ -5,10 +5,9 @@ import scrapy
 from scrapy.http import Request, Response
 import re
 
+
 input_file = 'company_names.json'
-output_file = 'company_profile_data.json'
 company_urls = []
-scraped_urls = set()
 
 def get_url_by_company_name():
     global company_urls
@@ -22,25 +21,6 @@ def get_url_by_company_name():
         print(f"Error: JSON file '{input_file}' not found.")
     except Exception as e:
         print(f"An error occurred while reading JSON file: {str(e)}")
-
-def load_scraped_urls():
-    global scraped_urls, scraped_data
-    try:
-        with open(output_file, 'r') as json_file:
-            scraped_data = json.load(json_file)
-            scraped_urls = {item['company_url'] for item in scraped_data}
-            print(f"Loaded {len(scraped_urls)} previously scraped URLs.")
-    except FileNotFoundError:
-        print(f"No previous scraped data found in '{output_file}'.")
-    except Exception as e:
-        print(f"An error occurred while loading scraped URLs: {str(e)}")
-
-def save_scraped_data():
-    """Save the updated scraped data to the JSON file."""
-    global scraped_data
-    with open(output_file, 'w') as json_file:
-        json.dump(scraped_data, json_file, indent=4)
-    print("Scraped data saved to", output_file)
 
 class CompanyProfileScraperSpider(scrapy.Spider):
     name = 'company_profile_scraper'
@@ -61,10 +41,8 @@ class CompanyProfileScraperSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         get_url_by_company_name()
-        load_scraped_urls()
         
-        # Filter out URLs already scraped
-        self.company_pages = list(set(company_urls) - scraped_urls)
+        self.company_pages = list(set(company_urls))
         print(f"Found {len(self.company_pages)} new URLs to scrape.")
         
         if not company_urls:
@@ -193,8 +171,6 @@ class CompanyProfileScraperSpider(scrapy.Spider):
             print("Error: *****Skipped index, as some details are missing*********")
 
         yield company_item
-        scraped_data.append(company_item)
-        scraped_urls.add(company_url)
         company_index_tracker += 1
 
         # Request next URL
@@ -205,6 +181,3 @@ class CompanyProfileScraperSpider(scrapy.Spider):
                 callback=self.parse_response,
                 meta={'company_index_tracker': company_index_tracker + 1}
             )
-    def closed(self, reason):
-        # Save the updated scraped data when the spider closes
-        save_scraped_data()
