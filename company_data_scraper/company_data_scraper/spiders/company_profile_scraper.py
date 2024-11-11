@@ -24,11 +24,11 @@ def get_url_by_company_name():
         print(f"An error occurred while reading JSON file: {str(e)}")
 
 def load_scraped_urls():
-    global scraped_urls
+    global scraped_urls, scraped_data
     try:
         with open(output_file, 'r') as json_file:
-            data = json.load(json_file)
-            scraped_urls = {item['company_url'] for item in data}
+            scraped_data = json.load(json_file)
+            scraped_urls = {item['company_url'] for item in scraped_data}
             print(f"Loaded {len(scraped_urls)} previously scraped URLs.")
     except FileNotFoundError:
         print(f"No previous scraped data found in '{output_file}'.")
@@ -37,6 +37,7 @@ def load_scraped_urls():
 
 def save_scraped_data():
     """Save the updated scraped data to the JSON file."""
+    global scraped_data
     with open(output_file, 'w') as json_file:
         json.dump(scraped_data, json_file, indent=4)
     print("Scraped data saved to", output_file)
@@ -114,6 +115,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
         company_item = {}
         company_item['company_url'] = company_url
+
         company_item['company_name'] = response.css('.top-card-layout__entity-info h1::text').get(default='not-found').strip()
 
         # Pause for an additional 3 seconds if company_name is 'not-found'
@@ -191,6 +193,8 @@ class CompanyProfileScraperSpider(scrapy.Spider):
             print("Error: *****Skipped index, as some details are missing*********")
 
         yield company_item
+        scraped_data.append(company_item)
+        scraped_urls.add(company_url)
         company_index_tracker += 1
 
         # Request next URL
