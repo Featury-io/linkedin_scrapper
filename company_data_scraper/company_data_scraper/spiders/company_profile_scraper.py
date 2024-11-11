@@ -6,7 +6,9 @@ from scrapy.http import Request, Response
 import re
 
 input_file = 'company_names.json'
+output_file = 'company_profile_data.json'
 company_urls = []
+scraped_urls = set()
 
 def get_url_by_company_name():
     global company_urls
@@ -21,6 +23,24 @@ def get_url_by_company_name():
     except Exception as e:
         print(f"An error occurred while reading JSON file: {str(e)}")
 
+def load_scraped_urls():
+    global scraped_urls
+    try:
+        with open(output_file, 'r') as json_file:
+            data = json.load(json_file)
+            scraped_urls = {item['company_url'] for item in data}
+            print(f"Loaded {len(scraped_urls)} previously scraped URLs.")
+    except FileNotFoundError:
+        print(f"No previous scraped data found in '{output_file}'.")
+    except Exception as e:
+        print(f"An error occurred while loading scraped URLs: {str(e)}")
+
+def save_scraped_data():
+    """Save the updated scraped data to the JSON file."""
+    with open(output_file, 'w') as json_file:
+        json.dump(scraped_data, json_file, indent=4)
+    print("Scraped data saved to", output_file)
+
 class CompanyProfileScraperSpider(scrapy.Spider):
     name = 'company_profile_scraper'
     
@@ -28,9 +48,9 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         'HTTPERROR_ALLOW_ALL': True,
         'REDIRECT_ENABLED': True,
         'REDIRECT_MAX_TIMES': 5,
-        'DOWNLOAD_DELAY': 3,              # Increased download delay to 3 seconds
+        'DOWNLOAD_DELAY': 2,              # Increased download delay to 3 seconds
         'RANDOMIZE_DOWNLOAD_DELAY': True, # Randomize download delay for natural behavior
-        'RETRY_TIMES': 10,
+        'RETRY_TIMES': 5,
         'DUPEFILTER_CLASS': 'scrapy.dupefilters.RFPDupeFilter',
         'CONCURRENT_REQUESTS': 1,
         'CONCURRENT_REQUESTS_PER_DOMAIN': 1,
@@ -40,13 +60,15 @@ class CompanyProfileScraperSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         get_url_by_company_name()
+        load_scraped_urls()
+        
+        # Filter out URLs already scraped
+        self.company_pages = list(set(company_urls) - scraped_urls)
+        print(f"Found {len(self.company_pages)} new URLs to scrape.")
         
         if not company_urls:
             print("No company URLs found. Exiting spider.")
             raise ValueError("No URLs to scrape.")
-
-        self.company_pages = list(set(company_urls.copy()))
-        print(f"Found {len(self.company_pages)} URLs to scrape.")
 
     def start_requests(self):
         for idx, url in enumerate(self.company_pages):
@@ -74,9 +96,8 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
         # Retry on 404 errors
         if response.status == 404:
-            if retry_count < 3:
+            if retry_count < 2:
                 print(f"Page not found for {company_url}. Retrying ({retry_count + 1}/3)...")
-                time.sleep(3)  # Additional delay before retrying
                 yield scrapy.Request(
                     url=company_url,
                     callback=self.parse_response,
@@ -180,3 +201,6 @@ class CompanyProfileScraperSpider(scrapy.Spider):
                 callback=self.parse_response,
                 meta={'company_index_tracker': company_index_tracker + 1}
             )
+    def closed(self, reason):
+        # Save the updated scraped data when the spider closes
+        save_scraped_data()
