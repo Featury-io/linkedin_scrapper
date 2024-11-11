@@ -15,6 +15,8 @@ def get_url_by_company_name():
         with open(input_file, 'r') as json_file:
             data = json.load(json_file)
             for v in data.values():
+                if isinstance(v,str) and len(v)>=1 and v[-1]=='/':
+                    v=v[:-1]
                 company_urls.append(v + "/?trk=companies_directory")
             print("Company URLs:", len(company_urls))
     except FileNotFoundError:
