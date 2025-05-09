@@ -19,7 +19,6 @@ class CompanyProfilePipeline:
                     existing_data = []
         else:
             existing_data = []
-        
         # Track all scraped data
         self.existing_data = existing_data
 

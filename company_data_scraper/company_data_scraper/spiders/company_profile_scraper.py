@@ -5,9 +5,10 @@ import scrapy
 from scrapy.http import Request, Response
 import re
 from company_data_scraper.pipelines import CompanyProfilePipeline
+import csv
 
-
-input_file = 'company_names.json'
+#input_file = 'company_names.json'
+input_file = 'company_ids.csv'
 company_urls = []
 
 def get_url_by_company_name():
@@ -24,6 +25,31 @@ def get_url_by_company_name():
         print(f"Error: JSON file '{input_file}' not found.")
     except Exception as e:
         print(f"An error occurred while reading JSON file: {str(e)}")
+
+def get_url_by_company_id():
+    global company_urls
+    existing_data=[]
+    try:
+        output_file = 'company_profile_data.json'
+        with open(output_file, 'r') as f:
+            existing_data = json.load(f)
+            existing_data = [item['company_url'] for item in existing_data]
+            print("Found ", len(existing_data), " existing company URLs")
+    except:
+        print("No existing data found")
+    try:
+        with open(input_file, 'r') as csv_file:
+            reader = csv.reader(csv_file)   
+            for row in reader:
+                url="https://www.linkedin.com/company/" + row[0] + "/?trk=companies_directory"
+                if url not in existing_data:
+                    company_urls.append(url)
+            print(f" >  Loaded {len(company_urls)} Company URLs")
+    except FileNotFoundError:
+        print(f"/!\ Error: CSV file '{input_file}' not found.")
+    except Exception as e:
+        print(f"/!\ Error: An error occurred while reading CSV file: {str(e)}")
+
 
 class CompanyProfileScraperSpider(scrapy.Spider):
     name = 'company_profile_scraper'
@@ -43,17 +69,16 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        get_url_by_company_name()
+        #get_url_by_company_name()
+        get_url_by_company_id()
+        print(f" >  Found {len(company_urls)} URLs to scrape. Have to check if they are already scraped")
 
-        self.company_pages = [
-            url for url in set(company_urls) 
-            if url not in CompanyProfilePipeline.scraped_urls
-        ]
-        print(f"Found {len(self.company_pages)} new URLs to scrape.")
+        self.company_pages = [url for url in set(company_urls) if url not in CompanyProfilePipeline.scraped_urls]
+        print(f" >  Found {len(self.company_pages)} new URLs to scrape.")
         
         if not company_urls:
-            print("No company URLs found. Exiting spider.")
-            raise ValueError("No URLs to scrape.")
+            print(" >  No company URLs found. Exiting spider.")
+            raise ValueError(" >  No URLs to scrape.")
 
     def start_requests(self):
         for idx, url in enumerate(self.company_pages):
@@ -74,7 +99,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
             yield scrapy.Request(
                 url=response.headers['Location'].decode('utf-8'), 
                 callback=self.parse_response,
-                meta={'company_index_tracker': company_index_tracker, 'retry_count': retry_count},
+                meta={'company_index_tracker': company_index_tracker, 'retry_count': retry_count, 'cookiejar': retry_count},
                 dont_filter=True
             )
             return
@@ -94,7 +119,7 @@ class CompanyProfileScraperSpider(scrapy.Spider):
             return
 
         print('********')
-        print(f'Scraping page: {str(company_index_tracker + 1)} of {str(len(self.company_pages))}')
+        print(f'Scraping page: {str(company_index_tracker + 1)} of {str(len(self.company_pages))} - URL QUERIED: {company_url} -  CURRENT URL: {response.url}')
         print('********')
 
         company_item = {}
@@ -104,9 +129,8 @@ class CompanyProfileScraperSpider(scrapy.Spider):
 
         # Pause for an additional 3 seconds if company_name is 'not-found'
         if company_item['company_name'] == 'not-found':
-            print(company_url)
-            print("Company name not found. Pausing for an additional 3 seconds.")
-            time.sleep(3)
+            print("Company name not found. Skipping it for now - ", company_url)
+            return
 
         followers_count_text = response.xpath('//h3[contains(@class, "top-card-layout__first-subline")]/span/following-sibling::text()').get(default='not-found')
         try:
@@ -118,7 +142,9 @@ class CompanyProfileScraperSpider(scrapy.Spider):
         company_item['about_us'] = response.css('.core-section-container__content p::text').get(default='not-found').strip()
 
         try:
-            followers_num_match = re.findall(r'\d{1,3}(?:,\d{3})*', response.css('a.face-pile__cta::text').get(default='not-found').strip())
+            #followers_num_match = re.findall(r'\d{1,3}(?:,\d{3})*', response.css('a.face-pile__cta::text').get(default='not-found').strip())
+            followers_text=response.css('p.face-pile__text::text').get(default='not-found').strip() # 'View all 62 employees'
+            followers_num_match = re.findall(r'\d{1,3}(?:,\d{3})*', followers_text)
             company_item['num_of_employees'] = int(followers_num_match[0].replace(',', '')) if followers_num_match else None
         except Exception as e:
             print("Error occurred while getting number of employees:", e)
@@ -130,29 +156,28 @@ class CompanyProfileScraperSpider(scrapy.Spider):
                 company_item['website'] = company_details[0].css('a::text').get(default='not-found').strip()
             except:
                 company_item['website'] = ""
-            try:
-                company_industry_line = company_details[1].css('.text-md::text').getall()
-                company_item['industry'] = company_industry_line[1].strip()
-            except:
-                company_item['industry'] = ""
-            try:
-                company_size_line = company_details[2].css('.text-md::text').getall()
-                company_item['company_size_approx'] = company_size_line[1].strip().split()[0]
-            except:
-                company_item['company_size_approx'] = ""
-            try:
-                company_headquarters = company_details[3].css('.text-md::text').getall()
-                if company_headquarters[0].lower().strip() == 'headquarters':
-                    company_item['headquarters'] = company_headquarters[1].strip()
-                else:
-                    company_item['headquarters'] = 'not-found'
-            except:
-                company_item['headquarters'] = ""
-            try:
-                company_type = company_details[4].css('.text-md::text').getall()
-                company_item['type'] = company_type[1].strip()
-            except:
-                company_item['type'] = ""
+
+            company_item['industry'] = ""
+            company_item['company_size_approx'] = ""
+            company_item['headquarters'] = ""
+            company_item['type'] = ""
+            company_item['founded'] = ""
+
+            for i in range(len(company_details)):
+                try:
+                    company_detail_item=company_details[i].css('.text-md::text').getall()
+                    if company_detail_item[0].lower().strip() == 'industry':
+                        company_item['industry'] = company_detail_item[1].strip()
+                    elif company_detail_item[0].lower().strip() == 'company size':
+                        company_item['company_size_approx'] = company_detail_item[1].strip().split()[0]
+                    elif company_detail_item[0].lower().strip() == 'headquarters':
+                        company_item['headquarters'] = company_detail_item[1].strip()
+                    elif company_detail_item[0].lower().strip() == 'type':
+                        company_item['type'] = company_detail_item[1].strip()
+                    elif company_detail_item[0].lower().strip() == 'founded':
+                        company_item['founded'] = company_detail_item[1].strip()
+                except:
+                    pass
             try:
                 # specialities or founded, one among them -> storing in unsure_parameter
                 unsure_parameter = company_details[5].css('.text-md::text').getall()
@@ -187,3 +212,6 @@ class CompanyProfileScraperSpider(scrapy.Spider):
                 callback=self.parse_response,
                 meta={'company_index_tracker': company_index_tracker + 1}
             )
+
+
+# scrapy  crawl company_profile_scraper
